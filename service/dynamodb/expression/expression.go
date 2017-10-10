@@ -571,7 +571,7 @@ func (en exprNode) buildExpressionString(aliasList *aliasList) (string, error) {
 		default:
 			return "", fmt.Errorf("buildexprNode error: invalid escape rune %#v", formattedExpression[i+1])
 		}
-		formattedExpression = formattedExpression[:i] + alias + formattedExpression[i+2:]
+		formattedExpression = formattedExpression[:i] + alias + formattedExpression[i+len(alias):]
 		i += len(alias)
 	}
 
