@@ -21,6 +21,15 @@ type ValueBuilder struct {
 	value interface{}
 }
 
+// marshaledValueBuilder represents an value operand and implements the
+// OperandBuilder interface.
+// This allows the us to build a ValueBuilder-live struct, with already
+// marshaled dynamodb.AttributeValue, as is the case when building the
+// builder structs from already existing input.
+type marshaledValueBuilder struct {
+	value dynamodb.AttributeValue
+}
+
 // NameBuilder represents a name of a top level item attribute or a nested
 // attribute. Since NameBuilder represents a DynamoDB Operand, it implements the
 // OperandBuilder interface. Methods and functions in the package take
@@ -147,6 +156,15 @@ func Name(name string) NameBuilder {
 //     condition := expression.Name("foo").Equal(expression.Value(10))
 func Value(value interface{}) ValueBuilder {
 	return ValueBuilder{
+		value: value,
+	}
+}
+
+// marshaledValue creates a ValueBuilder that is already marshaled.
+// This facilitates usage internally for generating ValueBuilders from
+// already existing dynamodb.AttributeValue.
+func marshaledValue(value dynamodb.AttributeValue) marshaledValueBuilder {
+	return marshaledValueBuilder{
 		value: value,
 	}
 }
@@ -528,6 +546,24 @@ func (vb ValueBuilder) BuildOperand() (Operand, error) {
 	operand := Operand{
 		exprNode: exprNode{
 			values:  []dynamodb.AttributeValue{*expr},
+			fmtExpr: "$v",
+		},
+	}
+	return operand, nil
+}
+
+// BuildOperand creates an Operand struct which are building blocks to DynamoDB
+// Expressions. Package methods and functions can establish relationships
+// between operands, representing DynamoDB Expressions. The method
+// BuildOperand() is called recursively when the Build() method on the type
+// Builder is called. BuildOperand() should never be called externally.
+// BuildOperand() aliases all strings to avoid stepping over DynamoDB's reserved
+// words.
+// More information on reserved words at http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html
+func (mvb marshaledValueBuilder) BuildOperand() (Operand, error) {
+	operand := Operand{
+		exprNode: exprNode{
+			values:  []dynamodb.AttributeValue{mvb.value},
 			fmtExpr: "$v",
 		},
 	}
