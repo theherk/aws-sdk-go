@@ -19,6 +19,13 @@ const (
 	deleteOperation               = "DELETE"
 )
 
+var updateOps = []operationMode{
+	addOperation,
+	deleteOperation,
+	removeOperation,
+	setOperation,
+}
+
 // Implementing the Sort interface
 type modeList []operationMode
 
