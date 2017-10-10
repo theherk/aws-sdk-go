@@ -396,3 +396,66 @@ func buildChildNodes(operationBuilderList []operationBuilder) (exprNode, error) 
 
 	return node, nil
 }
+// parseExprStr converts an expression string to an exprNode.
+// Since each expression type has unique characteristics for how the are
+// constructed, each builder struct must have a parseExprStr method
+// defined.
+func (ub *UpdateBuilder) parseExprStr(input dynamodb.UpdateItemInput) {
+	opExprsMap := map[operationMode][]string{}
+	remaining := *input.UpdateExpression
+	for len(remaining) > 0 {
+		opMode, opExprs, remainder := firstOp(remaining)
+		opExprsMap[opMode] = opExprs
+		remaining = remainder
+	}
+	for k, v := range opExprsMap {
+		ub.operationList[k] = []operationBuilder{}
+		for _, expr := range v {
+			ub.operationList[k] = append(ub.operationList[k], opBuilderFromExpr(
+				k, expr, input.ExpressionAttributeNames, input.ExpressionAttributeValues),
+			)
+		}
+	}
+}
+
+// firstOp takes the portion of an expression string following the first
+// operation keyword and returns the substring that leads to the next
+// keyword if found. It returns the first operation mode found, its
+// actions, and the string following the first operation.
+// Its purpose is to help break update expressions into there parts.
+// As an example, when parsing the expression "SET x = y, REMOVE z",
+// After extracting "SET", you must find the remained that applies to
+// the set operation.
+// To do so, we split at each of the remaining keywords, leaving just
+// the set operation's actions.
+func firstOp(expr string) (operationMode, []string, string) {
+	expr = strings.Replace(expr, "\n", " ", -1)
+	var opMode operationMode
+	var opCompoundExpr, remainder string
+	candidate := expr
+	for _, v := range updateOps {
+		parts := strings.SplitN(candidate, string(v), 2)
+		if len(parts[0]) == 0 {
+			opMode = v
+			remainder = parts[1]
+			break
+		}
+		candidate = parts[0]
+		if len(parts) > 1 {
+			remainder = string(v) + parts[1]
+		}
+	}
+	opCompoundExpr = remainder
+	for _, v := range updateOps {
+		if v != opMode {
+			opCompoundExpr = strings.SplitN(opCompoundExpr, string(v), 2)[0]
+		}
+	}
+	remainder = strings.Trim(remainder[len(opCompoundExpr):], ", ")
+	opCompoundExpr = strings.Trim(opCompoundExpr, ", ")
+	opExprs := strings.Split(opCompoundExpr, ",")
+	for i, v := range opExprs {
+		opExprs[i] = strings.Trim(v, " ")
+	}
+	return opMode, opExprs, remainder
+}
