@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // operationMode specifies the types of update operations that the
@@ -433,6 +435,30 @@ func (ub *UpdateBuilder) parseExprStr(input dynamodb.UpdateItemInput) {
 			)
 		}
 	}
+}
+
+func opBuilderFromExpr(mode operationMode, expr string, names map[string]*string, values map[string]*dynamodb.AttributeValue) operationBuilder {
+	var name NameBuilder
+	var opBuilder operationBuilder
+	tokens := strings.Split(expr, " ")
+	switch mode {
+	case addOperation:
+		if tokens[0][0] != ':' {
+			name = Name(tokens[0])
+		} else {
+			name = Name(*names[tokens[0][1:]])
+		}
+		value := marshaledValue(*values[tokens[1][1:]])
+		opBuilder = operationBuilder{
+			name:  name,
+			value: value,
+			mode:  mode,
+		}
+	case deleteOperation:
+	case removeOperation:
+	case setOperation:
+	}
+	return opBuilder
 }
 
 // firstOp takes the portion of an expression string following the first
