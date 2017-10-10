@@ -396,6 +396,23 @@ func buildChildNodes(operationBuilderList []operationBuilder) (exprNode, error) 
 
 	return node, nil
 }
+
+// NewUpdateBuilder returns a new instance of UpdateBuilder.
+func NewUpdateBuilder() UpdateBuilder {
+	return UpdateBuilder{}
+}
+
+// WithInput converts UpdateItemInput into an UpdateBuilder.
+func (ub UpdateBuilder) WithInput(input dynamodb.UpdateItemInput) UpdateBuilder {
+	if input.ExpressionAttributeNames == nil ||
+		input.ExpressionAttributeValues == nil ||
+		input.UpdateExpression == nil {
+		return ub
+	}
+	ub.parseExprStr(input)
+	return ub
+}
+
 // parseExprStr converts an expression string to an exprNode.
 // Since each expression type has unique characteristics for how the are
 // constructed, each builder struct must have a parseExprStr method
